@@ -1,112 +1,70 @@
 import os
-import asyncio
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from yt_dlp import YoutubeDL
+import telebot
+import yt_dlp
 
-# --- မင်းပေးထားတဲ့ အချက်အလက်တွေ (အပြည့်အစုံထည့်ပြီး) ---
-API_ID = 32642557
-API_HASH = "2790877135ea0991a392fe6a0d285c27"
-BOT_TOKEN = "8459123928:AAFREMWam1sdTZCgS5ieHnJ3N0pz1smbvmo"
-ADMIN_ID = 6363229693  # သားကြီးရဲ့ ID
+# မင်းရဲ့ Bot Token ကို ကုဒ်ထဲမှာ တိုက်ရိုက်ထည့်ထားပါတယ်
+API_TOKEN = '8459123928:AAFREMWam1sdTZCgS5ieHnJ3N0pz1smbvmo'
+bot = telebot.TeleBot(API_TOKEN)
 
-app = Client("my_pro_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    bot.reply_to(message, "နေကောင်းလား သားကြီး! သီချင်းနာမည် ဒါမှမဟုတ် YouTube Link ပို့ပေးပါ။ ငါ ရှာပေးမယ်။")
 
-user_data = {}
-db_file = "users.txt"
-
-# User စာရင်းမှတ်တမ်းသွင်းခြင်း
-def add_user(user_id):
-    if not os.path.exists(db_file): open(db_file, "w").close()
-    with open(db_file, "r+") as f:
-        users = f.read().splitlines()
-        if str(user_id) not in users:
-            f.write(f"{user_id}\n")
-
-@app.on_message(filters.command("start") & filters.private)
-async def start(client, message):
-    add_user(message.from_user.id)
-    await message.reply_text(
-        f"👋 **မင်္ဂလာပါ {message.from_user.first_name}!**\n\n"
-        "ကျွန်တော်က YouTube ကနေ သီချင်းတွေကို Cover Photo နဲ့တကွ Quality ကောင်းကောင်း ဒေါင်းပေးမယ့် Bot ပါ။\n\n"
-        "🔍 **သီချင်းနာမည်** သို့မဟုတ် **Link** တစ်ခုခု ပို့ပေးလိုက်ပါ သားကြီး!"
-    )
-
-@app.on_message(filters.command("stats") & filters.user(ADMIN_ID))
-async def stats(client, message):
-    if os.path.exists(db_file):
-        with open(db_file, "r") as f:
-            count = len(f.read().splitlines())
-        await message.reply_text(f"📊 **Admin Panel**\n\nလက်ရှိအသုံးပြုသူစုစုပေါင်း: {count} ယောက်")
-    else:
-        await message.reply_text("အသုံးပြုသူ မရှိသေးပါ!")
-
-@app.on_message(filters.text & filters.private)
-async def handle_input(client, message):
-    if message.text.startswith("/"): return
-    user_id = message.from_user.id
-    user_data[user_id] = message.text
+@bot.message_handler(func=lambda message: True)
+def download_music(message):
+    query = message.text
+    chat_id = message.chat.id
     
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔈 128kbps", callback_data="128"),
-         InlineKeyboardButton("📻 192kbps", callback_data="192")],
-        [InlineKeyboardButton("🎧 320kbps (Pro)", callback_data="320")]
-    ])
-    await message.reply_text("💿 ဘယ်လို Quality မျိုးနဲ့ ဒေါင်းမလဲ သားကြီး?", reply_markup=buttons)
+    sent_msg = bot.send_message(chat_id, f"🔎 '{query}' ကို YouTube မှာ ရှာနေတယ် ခဏစောင့်နော်...")
 
-@app.on_callback_query()
-async def download_logic(client, callback_query):
-    user_id = callback_query.from_user.id
-    quality = callback_query.data
-    query = user_data.get(user_id)
-
-    if not query: return
-
-    msg = await callback_query.message.edit_text("⏳ YouTube မှာ ရှာဖွေနေပါတယ်... ခဏစောင့်ပေးပါ...")
-
-    if not os.path.exists("downloads"): os.makedirs("downloads")
-
+    # yt-dlp options (YouTube ပိတ်တာ ကျော်ဖို့ cookies.txt ကို သုံးထားတယ်)
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': 'downloads/%(title)s.%(ext)s',
-        'postprocessors': [
-            {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality},
-            {'key': 'EmbedThumbnail'},
-            {'key': 'FFmpegMetadata'},
-        ],
-        'ffmpeg_location': './ffmpeg.exe',
-        'nocheckcertificate': True,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'outtmpl': '%(title)s.%(ext)s',
+        'cookiefile': 'cookies.txt',  # GitHub မှာ တင်ထားတဲ့ ဖိုင်နာမည်က cookies.txt ဖြစ်ရပါမယ်
+        'noplaylist': True,
         'quiet': True,
-        'writethumbnail': True,
+        'no_warnings': True,
     }
 
     try:
-        search_query = query if "youtube.com" in query or "youtu.be" in query else f"ytsearch1:{query}"
-        
-        with YoutubeDL(ydl_opts) as ydl:
-            await msg.edit_text(f"📥 **Quality {quality}kbps** နဲ့ ဒေါင်းလုဒ်ဆွဲနေပါပြီ...")
-            info = await asyncio.to_thread(ydl.extract_info, search_query, download=True)
-            video_info = info['entries'][0] if 'entries' in info else info
-            file_path = ydl.prepare_filename(video_info).replace(video_info['ext'], 'mp3')
-            title = video_info.get('title', 'Unknown Title')
-            performer = video_info.get('uploader', 'Music Bot')
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # ရှာဖွေပြီး အချက်အလက်ယူခြင်း
+            info = ydl.extract_info(f"ytsearch:{query}", download=True)
+            if 'entries' in info:
+                info = info['entries'][0]
+            
+            # ဖိုင်နာမည် သတ်မှတ်ခြင်း
+            filename = ydl.prepare_filename(info)
+            base, ext = os.path.splitext(filename)
+            mp3_filename = base + '.mp3'
 
-        await msg.edit_text("📤 Telegram ပေါ် တင်ပေးနေပါပြီ... ခဏလေးနော်...")
-        
-        await client.send_audio(
-            chat_id=user_id,
-            audio=file_path,
-            title=title,
-            performer=performer,
-            caption=f"🎵 **{title}**\n🔥 Quality: {quality}kbps\n\n✅ @my_audio_dl_bot"
-        )
-        await msg.delete()
-        
+            bot.edit_message_text("📤 သီချင်းတွေ့ပြီ၊ ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
+            
+            # သီချင်းကို Telegram ဆီ ပို့ခြင်း
+            with open(mp3_filename, 'rb') as audio:
+                bot.send_audio(chat_id, audio, title=info.get('title'))
+            
+            # Storage မပြည့်အောင် ဖိုင်တွေကို ပြန်ဖျက်ခြင်း
+            if os.path.exists(mp3_filename):
+                os.remove(mp3_filename)
+            if os.path.exists(filename):
+                os.remove(filename)
+                
+            bot.delete_message(chat_id, sent_msg.message_id)
+
     except Exception as e:
-        await msg.edit_text(f"❌ Error: {str(e)}")
-    finally:
-        if 'file_path' in locals() and os.path.exists(file_path):
-            os.remove(file_path)
+        error_msg = str(e)
+        if "Sign in to confirm you're not a bot" in error_msg:
+            bot.edit_message_text("❌ YouTube က ပိတ်လိုက်ပြန်ပြီ။ Cookies အသစ် ပြန်တင်ပေးပါဦး သားကြီး။", chat_id, sent_msg.message_id)
+        else:
+            bot.edit_message_text(f"❌ အမှားအယွင်း ရှိသွားတယ်: {error_msg}", chat_id, sent_msg.message_id)
 
-print("🚀 Bot ကို အောင်မြင်စွာ စတင်လိုက်ပါပြီ သားကြီး!")
-app.run()
+if __name__ == "__main__":
+    print("🚀 Bot ကို Cloud ပေါ်မှာ အောင်မြင်စွာ စတင်လိုက်ပါပြီ!")
+    bot.infinity_polling()
