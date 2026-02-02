@@ -1,70 +1,87 @@
 import os
 import telebot
 import yt_dlp
+from telebot import types
 
-# မင်းရဲ့ Telegram Bot Token အစစ်အမှန်
+# မင်းရဲ့ Bot Token
 API_TOKEN = '8459123928:AAFREMWam1sdTZCgS5ieHnJ3N0pz1smbvmo'
 bot = telebot.TeleBot(API_TOKEN)
 
+# ယာယီသိမ်းဆည်းဖို့ variable
+user_data = {}
+
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "နေကောင်းလား သားကြီး! သီချင်းနာမည် ဒါမှမဟုတ် YouTube Link ပို့ပေးပါ။ ငါ ရှာပေးမယ်။")
+    bot.reply_to(message, "နေကောင်းလား သားကြီး! သီချင်းနာမည် ဒါမှမဟုတ် YouTube Link ပို့ပေးပါ။")
 
 @bot.message_handler(func=lambda message: True)
-def download_music(message):
+def handle_message(message):
     query = message.text
     chat_id = message.chat.id
-    
-    sent_msg = bot.send_message(chat_id, f"🔎 '{query}' ကို YouTube မှာ ရှာနေတယ် ခဏစောင့်နော်...")
+    user_data[chat_id] = query
 
-    # yt-dlp options (YouTube ပိတ်တာ ကျော်ဖို့ cookies.txt ကို သုံးထားတယ်)
+    # Quality ရွေးဖို့ Button များ ပြုလုပ်ခြင်း
+    markup = types.InlineKeyboardMarkup()
+    item1 = types.InlineKeyboardButton("🔈 128kbps", callback_data="128")
+    item2 = types.InlineKeyboardButton("📻 192kbps", callback_data="192")
+    item3 = types.InlineKeyboardButton("🎧 320kbps (Pro)", callback_data="320")
+    markup.add(item1, item2)
+    markup.add(item3)
+
+    bot.send_message(chat_id, "📀 ဘယ်လို Quality မျိုးနဲ့ ဒေါင်းမလဲ သားကြီး?", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    chat_id = call.message.chat.id
+    quality = call.data
+    query = user_data.get(chat_id)
+
+    if not query:
+        bot.send_message(chat_id, "❌ အချက်အလက် ရှာမတွေ့တော့ဘူး၊ ပြန်ရိုက်ပေးပါဦး။")
+        return
+
+    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ဒေါင်းပေးနေပြီ ခဏစောင့်နော်...")
+
+    # yt-dlp options (Error ကျော်ဖို့ ပြင်ဆင်ထားသည်)
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
-            'preferredquality': '192',
+            'preferredquality': quality,
         }],
         'outtmpl': '%(title)s.%(ext)s',
-        'cookiefile': 'cookies.txt',  # GitHub မှာ ဖိုင်နာမည်က cookies.txt ဖြစ်ရမယ်
+        'cookiefile': 'cookies.txt',  # GitHub ထဲမှာ cookies.txt ရှိရမယ်
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
+        'ignoreerrors': True, # Format error တွေကျော်ဖို့
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # ရှာဖွေပြီး အချက်အလက်ယူခြင်း
             info = ydl.extract_info(f"ytsearch:{query}", download=True)
             if 'entries' in info:
                 info = info['entries'][0]
             
-            # ဖိုင်နာမည် သတ်မှတ်ခြင်း
             filename = ydl.prepare_filename(info)
             base, ext = os.path.splitext(filename)
             mp3_filename = base + '.mp3'
 
             bot.edit_message_text("📤 သီချင်းတွေ့ပြီ၊ ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
             
-            # သီချင်းကို Telegram ဆီ ပို့ခြင်း
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
-            # ဖိုင်တွေကို ပြန်ဖျက်ခြင်း
-            if os.path.exists(mp3_filename):
-                os.remove(mp3_filename)
-            if os.path.exists(filename):
-                os.remove(filename)
+            # ဖိုင်ဖျက်ခြင်း
+            if os.path.exists(mp3_filename): os.remove(mp3_filename)
+            if os.path.exists(filename): os.remove(filename)
                 
             bot.delete_message(chat_id, sent_msg.message_id)
 
     except Exception as e:
-        error_msg = str(e)
-        if "Sign in to confirm you're not a bot" in error_msg:
-            bot.edit_message_text("❌ YouTube က ပိတ်လိုက်ပြန်ပြီ။ Cookies အသစ် ပြန်တင်ပေးပါဦး သားကြီး။", chat_id, sent_msg.message_id)
-        else:
-            bot.edit_message_text(f"❌ အမှားအယွင်း ရှိသွားတယ်: {error_msg}", chat_id, sent_msg.message_id)
+        bot.edit_message_text(f"❌ အမှားအယွင်း ရှိသွားတယ်: {str(e)}", chat_id, sent_msg.message_id)
 
 if __name__ == "__main__":
-    print("🚀 Bot ကို အောင်မြင်စွာ စတင်လိုက်ပါပြီ သားကြီး!")
+    print("🚀 Bot စတင်နေပါပြီ...")
     bot.infinity_polling()
