@@ -2,7 +2,7 @@ import os
 import telebot
 import yt_dlp
 
-# မင်းရဲ့ Bot Token ကို ကုဒ်ထဲမှာ တိုက်ရိုက်ထည့်ထားပါတယ်
+# မင်းရဲ့ Telegram Bot Token အစစ်အမှန်
 API_TOKEN = '8459123928:AAFREMWam1sdTZCgS5ieHnJ3N0pz1smbvmo'
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -26,7 +26,7 @@ def download_music(message):
             'preferredquality': '192',
         }],
         'outtmpl': '%(title)s.%(ext)s',
-        'cookiefile': 'cookies.txt',  # GitHub မှာ တင်ထားတဲ့ ဖိုင်နာမည်က cookies.txt ဖြစ်ရပါမယ်
+        'cookiefile': 'cookies.txt',  # GitHub မှာ ဖိုင်နာမည်က cookies.txt ဖြစ်ရမယ်
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
@@ -50,7 +50,7 @@ def download_music(message):
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
-            # Storage မပြည့်အောင် ဖိုင်တွေကို ပြန်ဖျက်ခြင်း
+            # ဖိုင်တွေကို ပြန်ဖျက်ခြင်း
             if os.path.exists(mp3_filename):
                 os.remove(mp3_filename)
             if os.path.exists(filename):
@@ -66,5 +66,5 @@ def download_music(message):
             bot.edit_message_text(f"❌ အမှားအယွင်း ရှိသွားတယ်: {error_msg}", chat_id, sent_msg.message_id)
 
 if __name__ == "__main__":
-    print("🚀 Bot ကို Cloud ပေါ်မှာ အောင်မြင်စွာ စတင်လိုက်ပါပြီ!")
+    print("🚀 Bot ကို အောင်မြင်စွာ စတင်လိုက်ပါပြီ သားကြီး!")
     bot.infinity_polling()
