@@ -3,7 +3,7 @@ import telebot
 import yt_dlp
 from telebot import types
 
-# မင်းအခုလေးတင် ပို့လိုက်တဲ့ Token အသစ်
+# မင်းရဲ့ နောက်ဆုံး Token အသစ်
 API_TOKEN = '8459123928:AAGzz59AXJxL0WMUL_2ePF4jRs2nvAIDQq8'
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -41,6 +41,7 @@ def callback_query(call):
     sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ပြင်ဆင်နေတယ်...")
 
     ydl_opts = {
+        # Format ကို 'bestaudio' တစ်မျိုးတည်း မဟုတ်ဘဲ ပိုကျယ်ပြန့်အောင် ပြင်ထားတယ်
         'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
@@ -48,14 +49,17 @@ def callback_query(call):
             'preferredquality': quality,
         }],
         'outtmpl': '%(title)s.%(ext)s',
-        'cookiefile': 'cookies.txt',  # ဒီဖိုင်က GitHub ထဲမှာ ရှိနေရမယ်
+        'cookiefile': 'cookies.txt', 
         'noplaylist': True,
         'quiet': False,
+        # Signature/Cipher Error တွေအတွက် အောက်ကဟာလေး ထည့်ပေးထားတယ်
+        'extract_flat': False,
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             search_query = f"ytsearch1:{query}" if not query.startswith('http') else query
+            # ရှာဖွေပြီး အချက်အလက်ယူခြင်း
             info = ydl.extract_info(search_query, download=True)
             
             if 'entries' in info:
@@ -70,7 +74,7 @@ def callback_query(call):
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
-            # Temporary files တွေကို ဖျက်ထုတ်ခြင်း
+            # ဖိုင်ဟောင်းတွေ ရှင်းထုတ်ခြင်း
             if os.path.exists(mp3_filename): os.remove(mp3_filename)
             if os.path.exists(filename) and filename != mp3_filename: os.remove(filename)
             
@@ -78,10 +82,13 @@ def callback_query(call):
 
     except Exception as e:
         error_msg = str(e)
-        if "Sign in to confirm" in error_msg:
+        if "Requested format is not available" in error_msg:
+             bot.edit_message_text("❌ ဒီသီချင်းက MP3 ပြောင်းလို့မရတဲ့ အမျိုးအစားဖြစ်နေတယ်၊ တခြားဟာ စမ်းကြည့်ပါဦး။", chat_id, sent_msg.message_id)
+        elif "Sign in to confirm" in error_msg:
             bot.edit_message_text("❌ YouTube က Block ထားလို့ cookies.txt အသစ် လဲပေးပါဦး။", chat_id, sent_msg.message_id)
         else:
             bot.edit_message_text(f"❌ Error: {error_msg[:100]}", chat_id, sent_msg.message_id)
 
 if __name__ == "__main__":
-    bot.infinity_polling()
+    # Connection reset ပြဿနာအတွက် retry ပါတဲ့ polling ကို သုံးထားတယ်
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
