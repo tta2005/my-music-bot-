@@ -3,11 +3,10 @@ import telebot
 import yt_dlp
 from telebot import types
 
-# BotFather ကပေးတဲ့ Token အသစ်
+# မင်းပေးတဲ့ Token အသစ်ကို ဒီမှာ ထည့်ထားတယ်
 API_TOKEN = '8459123928:AAGBy-sjsNb5Z8hjU3ahJqzcc-iiX0bIjaI'
 bot = telebot.TeleBot(API_TOKEN)
 
-# User ရဲ့ ရှာဖွေမှုတွေကို မှတ်ထားဖို့
 user_data = {}
 
 @bot.message_handler(commands=['start', 'help'])
@@ -20,7 +19,6 @@ def handle_message(message):
     chat_id = message.chat.id
     user_data[chat_id] = query
 
-    # Quality ရွေးဖို့ Button များ
     markup = types.InlineKeyboardMarkup()
     item1 = types.InlineKeyboardButton("🔈 128kbps", callback_data="128")
     item2 = types.InlineKeyboardButton("📻 192kbps", callback_data="192")
@@ -40,9 +38,8 @@ def callback_query(call):
         bot.send_message(chat_id, "❌ အချက်အလက် ပြန်ရိုက်ပေးပါဦး။")
         return
 
-    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ရှာဖွေဒေါင်းလုဒ်လုပ်နေတယ်...")
+    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ရှာဖွေနေတယ် ခဏစောင့်နော်...")
 
-    # yt-dlp options (NoneType error နဲ့ FFmpeg error ကာကွယ်ရန်)
     ydl_opts = {
         'format': 'bestaudio/best',
         'postprocessors': [{
@@ -55,18 +52,13 @@ def callback_query(call):
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
-        'extract_flat': False, # NoneType error အတွက် အရေးကြီးသည်
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # YouTube မှာ ရှာဖွေခြင်း (ytsearch1: သုံးထားသည်)
             search_query = f"ytsearch1:{query}" if not query.startswith('http') else query
             info = ydl.extract_info(search_query, download=True)
             
-            if info is None:
-                raise Exception("သီချင်းရှာမတွေ့ပါ")
-
             if 'entries' in info:
                 info = info['entries'][0]
             
@@ -76,14 +68,11 @@ def callback_query(call):
 
             bot.edit_message_text("📤 သီချင်းတွေ့ပြီ၊ ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
             
-            # Telegram ထံ Audio ပို့ခြင်း
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
-            # ဒေါင်းထားတဲ့ဖိုင်တွေကို ပြန်ဖျက်ခြင်း (Storage ချွေတာရန်)
             if os.path.exists(mp3_filename): os.remove(mp3_filename)
-            if os.path.exists(filename) and filename != mp3_filename: os.remove(filename)
-                
+            if os.path.exists(filename): os.remove(filename)
             bot.delete_message(chat_id, sent_msg.message_id)
 
     except Exception as e:
