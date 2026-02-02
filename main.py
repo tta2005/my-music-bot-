@@ -7,7 +7,6 @@ from telebot import types
 API_TOKEN = '8459123928:AAFREMWam1sdTZCgS5ieHnJ3N0pz1smbvmo'
 bot = telebot.TeleBot(API_TOKEN)
 
-# ယာယီသိမ်းဆည်းဖို့ variable
 user_data = {}
 
 @bot.message_handler(commands=['start', 'help'])
@@ -20,7 +19,6 @@ def handle_message(message):
     chat_id = message.chat.id
     user_data[chat_id] = query
 
-    # Quality ရွေးဖို့ Button များ ပြုလုပ်ခြင်း
     markup = types.InlineKeyboardMarkup()
     item1 = types.InlineKeyboardButton("🔈 128kbps", callback_data="128")
     item2 = types.InlineKeyboardButton("📻 192kbps", callback_data="192")
@@ -42,24 +40,25 @@ def callback_query(call):
 
     sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ဒေါင်းပေးနေပြီ ခဏစောင့်နော်...")
 
-    # yt-dlp options (Error ကျော်ဖို့ ပြင်ဆင်ထားသည်)
+    # format error ကျော်ဖို့ options တွေကို အသေအချာ ပြင်ထားတယ်
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio/best', # အကောင်းဆုံး audio format ကိုပဲ ယူမယ်
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': quality,
         }],
         'outtmpl': '%(title)s.%(ext)s',
-        'cookiefile': 'cookies.txt',  # GitHub ထဲမှာ cookies.txt ရှိရမယ်
+        'cookiefile': 'cookies.txt', 
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
-        'ignoreerrors': True, # Format error တွေကျော်ဖို့
+        'ignoreerrors': True,
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # YouTube မှာ ရှာဖွေခြင်း
             info = ydl.extract_info(f"ytsearch:{query}", download=True)
             if 'entries' in info:
                 info = info['entries'][0]
@@ -68,6 +67,11 @@ def callback_query(call):
             base, ext = os.path.splitext(filename)
             mp3_filename = base + '.mp3'
 
+            # အကယ်၍ mp3 ဖိုင် တကယ်မရှိလာရင် (ဒေါင်းမရရင်)
+            if not os.path.exists(mp3_filename):
+                # mp3 တိုက်ရိုက်မရရင် မူရင်းဖိုင်ကိုပဲ ပို့ဖို့ ကြိုးစားမယ်
+                mp3_filename = filename
+
             bot.edit_message_text("📤 သီချင်းတွေ့ပြီ၊ ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
             
             with open(mp3_filename, 'rb') as audio:
@@ -75,7 +79,7 @@ def callback_query(call):
             
             # ဖိုင်ဖျက်ခြင်း
             if os.path.exists(mp3_filename): os.remove(mp3_filename)
-            if os.path.exists(filename): os.remove(filename)
+            if os.path.exists(filename) and filename != mp3_filename: os.remove(filename)
                 
             bot.delete_message(chat_id, sent_msg.message_id)
 
@@ -83,5 +87,4 @@ def callback_query(call):
         bot.edit_message_text(f"❌ အမှားအယွင်း ရှိသွားတယ်: {str(e)}", chat_id, sent_msg.message_id)
 
 if __name__ == "__main__":
-    print("🚀 Bot စတင်နေပါပြီ...")
     bot.infinity_polling()
