@@ -3,8 +3,8 @@ import telebot
 import yt_dlp
 from telebot import types
 
-# မင်းရဲ့ Token အသစ်
-API_TOKEN = '8459123928:AAF1G0ILh1qROiNqhrDeRqHHERSldvh3hq4'
+# မင်းအခုလေးတင် ပို့လိုက်တဲ့ Token အသစ်
+API_TOKEN = '8459123928:AAGzz59AXJxL0WMUL_2ePF4jRs2nvAIDQq8'
 bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
@@ -50,7 +50,7 @@ def callback_query(call):
         'outtmpl': '%(title)s.%(ext)s',
         'cookiefile': 'cookies.txt',  # ဒီဖိုင်က GitHub ထဲမှာ ရှိနေရမယ်
         'noplaylist': True,
-        'quiet': False, # Error မြင်ရအောင်
+        'quiet': False,
     }
 
     try:
@@ -65,19 +65,21 @@ def callback_query(call):
             base, ext = os.path.splitext(filename)
             mp3_filename = base + '.mp3'
 
-            bot.edit_message_text("📤 ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
+            bot.edit_message_text("📤 သီချင်းတွေ့ပြီ၊ ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
             
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
+            # Temporary files တွေကို ဖျက်ထုတ်ခြင်း
             if os.path.exists(mp3_filename): os.remove(mp3_filename)
-            if os.path.exists(filename): os.remove(filename)
+            if os.path.exists(filename) and filename != mp3_filename: os.remove(filename)
+            
             bot.delete_message(chat_id, sent_msg.message_id)
 
     except Exception as e:
         error_msg = str(e)
         if "Sign in to confirm" in error_msg:
-            bot.edit_message_text("❌ YouTube က ပိတ်ထားလို့ cookies.txt အသစ်လဲပေးပါဦး။", chat_id, sent_msg.message_id)
+            bot.edit_message_text("❌ YouTube က Block ထားလို့ cookies.txt အသစ် လဲပေးပါဦး။", chat_id, sent_msg.message_id)
         else:
             bot.edit_message_text(f"❌ Error: {error_msg[:100]}", chat_id, sent_msg.message_id)
 
