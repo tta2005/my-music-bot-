@@ -3,8 +3,8 @@ import telebot
 import yt_dlp
 from telebot import types
 
-# မင်းရဲ့ Bot Token
-API_TOKEN = '8459123928:AAFREMWam1sdTZCgS5ieHnJ3N0pz1smbvmo'
+# မင်းအခုရလာတဲ့ Token အသစ်ကို ဒီမှာ အစားထိုးထည့်ထားတယ်
+API_TOKEN = '8459123928:AAGBy-sjsNb5Z8hjU3ahJqzcc-iiX0bIjaI'
 bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
@@ -35,21 +35,20 @@ def callback_query(call):
     query = user_data.get(chat_id)
 
     if not query:
-        bot.send_message(chat_id, "❌ အချက်အလက် ရှာမတွေ့တော့ဘူး၊ ပြန်ရိုက်ပေးပါဦး။")
+        bot.send_message(chat_id, "❌ အချက်အလက် ပြန်ရိုက်ပေးပါဦး။")
         return
 
-    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ဒေါင်းပေးနေပြီ ခဏစောင့်နော်...")
+    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ရှာဖွေဒေါင်းလုဒ်လုပ်နေတယ်...")
 
-    # format error ကျော်ဖို့ options တွေကို အသေအချာ ပြင်ထားတယ်
     ydl_opts = {
-        'format': 'bestaudio/best', # အကောင်းဆုံး audio format ကိုပဲ ယူမယ်
+        'format': 'bestaudio/best',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': quality,
         }],
         'outtmpl': '%(title)s.%(ext)s',
-        'cookiefile': 'cookies.txt', 
+        'cookiefile': 'cookies.txt', # GitHub ထဲက cookies.txt ကို သုံးထားတယ်
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
@@ -58,33 +57,30 @@ def callback_query(call):
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # YouTube မှာ ရှာဖွေခြင်း
-            info = ydl.extract_info(f"ytsearch:{query}", download=True)
-            if 'entries' in info:
+            # NoneType error မတက်အောင် ytsearch1 ကို သေချာသုံးထားတယ်
+            info = ydl.extract_info(f"ytsearch1:{query}", download=True)
+            if 'entries' in info and len(info['entries']) > 0:
                 info = info['entries'][0]
+            elif 'entries' not in info:
+                pass # search မဟုတ်ဘဲ direct link ဆိုရင် ဒီတိုင်းသွားမယ်
             
             filename = ydl.prepare_filename(info)
             base, ext = os.path.splitext(filename)
             mp3_filename = base + '.mp3'
-
-            # အကယ်၍ mp3 ဖိုင် တကယ်မရှိလာရင် (ဒေါင်းမရရင်)
-            if not os.path.exists(mp3_filename):
-                # mp3 တိုက်ရိုက်မရရင် မူရင်းဖိုင်ကိုပဲ ပို့ဖို့ ကြိုးစားမယ်
-                mp3_filename = filename
 
             bot.edit_message_text("📤 သီချင်းတွေ့ပြီ၊ ပို့ပေးနေပြီ...", chat_id, sent_msg.message_id)
             
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
-            # ဖိုင်ဖျက်ခြင်း
+            # နေရာလွတ်စေရန် ဖိုင်ပြန်ဖျက်ခြင်း
             if os.path.exists(mp3_filename): os.remove(mp3_filename)
-            if os.path.exists(filename) and filename != mp3_filename: os.remove(filename)
+            if os.path.exists(filename): os.remove(filename)
                 
             bot.delete_message(chat_id, sent_msg.message_id)
 
     except Exception as e:
-        bot.edit_message_text(f"❌ အမှားအယွင်း ရှိသွားတယ်: {str(e)}", chat_id, sent_msg.message_id)
+        bot.edit_message_text(f"❌ အမှား: {str(e)}", chat_id, sent_msg.message_id)
 
 if __name__ == "__main__":
     bot.infinity_polling()
