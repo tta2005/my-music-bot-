@@ -3,8 +3,8 @@ import telebot
 import yt_dlp
 from telebot import types
 
-# မင်းပေးတဲ့ Token အသစ်ကို ဒီမှာ ထည့်ထားတယ်
-API_TOKEN = '8459123928:AAGBy-sjsNb5Z8hjU3ahJqzcc-iiX0bIjaI'
+# မင်းအခုလေးတင် ပို့လိုက်တဲ့ Token အသစ်
+API_TOKEN = '8459123928:AAF1G0ILh1qROiNqhrDeRqHHERSldvh3hq4'
 bot = telebot.TeleBot(API_TOKEN)
 
 user_data = {}
@@ -38,7 +38,7 @@ def callback_query(call):
         bot.send_message(chat_id, "❌ အချက်အလက် ပြန်ရိုက်ပေးပါဦး။")
         return
 
-    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ရှာဖွေနေတယ် ခဏစောင့်နော်...")
+    sent_msg = bot.send_message(chat_id, f"📥 {quality}kbps နဲ့ ဒေါင်းလုဒ်လုပ်နေပြီ...")
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -52,6 +52,7 @@ def callback_query(call):
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
+        'extract_flat': False,
     }
 
     try:
@@ -59,6 +60,9 @@ def callback_query(call):
             search_query = f"ytsearch1:{query}" if not query.startswith('http') else query
             info = ydl.extract_info(search_query, download=True)
             
+            if info is None:
+                raise Exception("သီချင်းရှာမတွေ့ပါ")
+
             if 'entries' in info:
                 info = info['entries'][0]
             
@@ -71,8 +75,10 @@ def callback_query(call):
             with open(mp3_filename, 'rb') as audio:
                 bot.send_audio(chat_id, audio, title=info.get('title'))
             
+            # File ရှင်းထုတ်ခြင်း
             if os.path.exists(mp3_filename): os.remove(mp3_filename)
-            if os.path.exists(filename): os.remove(filename)
+            if os.path.exists(filename) and filename != mp3_filename: os.remove(filename)
+                
             bot.delete_message(chat_id, sent_msg.message_id)
 
     except Exception as e:
